@@ -1,0 +1,55 @@
+# ── Python ────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.Python
+env/
+venv/
+.venv/
+pip-wheel-metadata/
+*.pyo
+
+# ── Jupyter ───────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb          # notebooks live in previous/; exclude from main source
+
+# ── ML Models (too large for GitHub — store externally) ───────────────────
+models/*.joblib
+models/*.pkl
+models/*.h5
+models/*.pt
+models/*.pth
+*.tflite
+*.task
+
+# ── Data ──────────────────────────────────────────────────────────────────
+data/raw/
+data/processed/*.csv
+data/processed/audio_tmp/
+
+# ── Runtime / uploads / logs ──────────────────────────────────────────────
+uploads/*
+!uploads/.gitkeep
+logs/*
+!logs/.gitkeep
+
+# ── OS / Editor ───────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ── Environment / secrets ─────────────────────────────────────────────────
+.env
+.env.*
+*.pem
+*.key

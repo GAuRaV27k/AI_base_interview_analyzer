@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Analysis Results – AI Interview Analyzer</title>
+
+  <!-- Bootstrap 5 -->
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+    integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+    crossorigin="anonymous"
+  />
+  <!-- Bootstrap Icons -->
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+  />
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <!-- Custom styles -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+
+  <!-- ── Hero Header ─────────────────────────────────────────────────── -->
+  <header class="hero-header">
+    <div class="container">
+      <h1><i class="bi bi-bar-chart-fill me-3"></i>Analysis Results</h1>
+      <p class="lead mb-0">
+        {% if filename %}
+          Results for <strong>{{ filename }}</strong>
+        {% else %}
+          Your interview analysis is ready.
+        {% endif %}
+      </p>
+    </div>
+  </header>
+
+  <!-- ── Main Content ─────────────────────────────────────────────────── -->
+  <main class="container py-5" style="max-width: 900px;">
+
+    <!-- ── Final Score (hero card) ─────────────────────────────── -->
+    <div class="card metric-card final-score-card mb-5 p-4 text-center">
+      <div class="final-score-ring">
+        <span>{{ results.final_interview_score }}</span>
+      </div>
+      <h2 class="h4 fw-bold text-white mb-1">Final Interview Score</h2>
+      <p class="text-white-50 mb-0">
+        {% set s = results.final_interview_score %}
+        {% if s >= 85 %}
+          <i class="bi bi-trophy-fill me-1"></i>Excellent performance — Outstanding candidate!
+        {% elif s >= 70 %}
+          <i class="bi bi-hand-thumbs-up-fill me-1"></i>Good performance — Above average candidate.
+        {% elif s >= 55 %}
+          <i class="bi bi-clipboard-check me-1"></i>Average performance — Some areas to improve.
+        {% else %}
+          <i class="bi bi-journal-text me-1"></i>Below average — Significant improvement needed.
+        {% endif %}
+      </p>
+      <div class="score-bar-wrap mt-3" style="background:rgba(255,255,255,0.2)">
+        <div class="score-bar" data-score="{{ results.final_interview_score }}"
+             style="background:rgba(255,255,255,0.85)"></div>
+      </div>
+    </div>
+
+    <!-- ── Metric Grid ──────────────────────────────────────────── -->
+    <div class="row g-4 mb-5">
+
+      <!-- Confidence Score -->
+      <div class="col-md-6">
+        <div class="card metric-card h-100">
+          <div class="card-header bg-indigo text-white" style="background:var(--brand-primary)!important">
+            <i class="bi bi-shield-check me-2"></i>Confidence Score
+          </div>
+          <div class="card-body py-4 text-center">
+            <p class="metric-value text-indigo" style="color:var(--brand-primary)">
+              {{ results.confidence_score }}<span class="fs-4 fw-normal text-muted">/100</span>
+            </p>
+            <p class="metric-label">
+              {% if results.confidence_score >= 80 %}
+                <span class="badge bg-success">High Confidence</span>
+              {% elif results.confidence_score >= 60 %}
+                <span class="badge bg-warning text-dark">Moderate Confidence</span>
+              {% else %}
+                <span class="badge bg-danger">Low Confidence</span>
+              {% endif %}
+            </p>
+            <div class="score-bar-wrap">
+              <div class="score-bar" data-score="{{ results.confidence_score }}"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Speech Rate -->
+      <div class="col-md-6">
+        <div class="card metric-card h-100">
+          <div class="card-header text-white" style="background:#0891b2">
+            <i class="bi bi-mic-fill me-2"></i>Speech Rate
+          </div>
+          <div class="card-body py-4 text-center">
+            <p class="metric-value" style="color:#0891b2">
+              {{ results.speech_rate }}<span class="fs-4 fw-normal text-muted"> wpm</span>
+            </p>
+            <p class="metric-label">
+              {% set wpm = results.speech_rate %}
+              {% if wpm >= 120 and wpm <= 160 %}
+                <span class="badge bg-success">Ideal Pace</span>
+              {% elif wpm < 120 %}
+                <span class="badge bg-warning text-dark">Too Slow</span>
+              {% else %}
+                <span class="badge bg-warning text-dark">Too Fast</span>
+              {% endif %}
+            </p>
+            <p class="small text-muted mt-2 mb-0">Optimal range: 120–160 wpm</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Eye Contact -->
+      <div class="col-md-6">
+        <div class="card metric-card h-100">
+          <div class="card-header text-white" style="background:#7c3aed">
+            <i class="bi bi-eye-fill me-2"></i>Eye Contact Score
+          </div>
+          <div class="card-body py-4 text-center">
+            <p class="metric-value" style="color:#7c3aed">
+              {{ results.eye_contact_score }}<span class="fs-4 fw-normal text-muted">/100</span>
+            </p>
+            <p class="metric-label">
+              {% if results.eye_contact_score >= 75 %}
+                <span class="badge" style="background:#7c3aed">Strong Eye Contact</span>
+              {% elif results.eye_contact_score >= 50 %}
+                <span class="badge bg-warning text-dark">Inconsistent Eye Contact</span>
+              {% else %}
+                <span class="badge bg-danger">Poor Eye Contact</span>
+              {% endif %}
+            </p>
+            <div class="score-bar-wrap">
+              <div class="score-bar" data-score="{{ results.eye_contact_score }}"
+                   style="background:linear-gradient(90deg,#7c3aed,#a78bfa)"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Emotion Prediction -->
+      <div class="col-md-6">
+        <div class="card metric-card h-100">
+          <div class="card-header text-white" style="background:#059669">
+            <i class="bi bi-emoji-smile me-2"></i>Emotion Prediction
+          </div>
+          <div class="card-body py-4 text-center d-flex flex-column align-items-center justify-content-center">
+            {% set emotion = results.emotion_prediction %}
+            {% if emotion == 'Enthusiastic' %}
+              {% set emoji, color = '🤩', '#f59e0b' %}
+            {% elif emotion == 'Nervous' or emotion == 'Fear' %}
+              {% set emoji, color = '😰', '#dc2626' %}
+            {% elif emotion == 'Calm' %}
+              {% set emoji, color = '😌', '#7c3aed' %}
+            {% elif emotion == 'Frustrated' %}
+              {% set emoji, color = '😤', '#b91c1c' %}
+            {% elif emotion == 'Disengaged' %}
+              {% set emoji, color = '😶', '#6b7280' %}
+            {% elif emotion == 'Surprised' %}
+              {% set emoji, color = '😮', '#0891b2' %}
+            {% elif emotion == 'Displeased' %}
+              {% set emoji, color = '😒', '#92400e' %}
+            {% else %}
+              {% set emoji, color = '🙂', '#6b7280' %}
+            {% endif %}
+
+            <div style="font-size:3.5rem;line-height:1;margin-bottom:.5rem">{{ emoji }}</div>
+            <span class="emotion-badge text-white" style="background:{{ color }}">
+              {{ emotion }}
+            </span>
+            <p class="small text-muted mt-3 mb-0">Dominant emotion detected throughout the interview</p>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /row -->
+
+    <!-- ── Analytics Charts ────────────────────────────────────── -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+      <div class="card-header fw-bold bg-white border-0 pt-4 pb-0 fs-6">
+        <i class="bi bi-graph-up-arrow me-2" style="color:var(--brand-primary)"></i>Interview Analytics
+      </div>
+      <div class="card-body pb-4">
+
+        <!-- Confidence animated bar -->
+        <div class="mb-4">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <span class="small fw-semibold"><i class="bi bi-shield-check me-1" style="color:var(--brand-primary)"></i>Confidence</span>
+            <span class="small fw-bold" style="color:var(--brand-primary)">{{ results.confidence_score }}/100</span>
+          </div>
+          <div class="progress rounded-pill" style="height:14px;background:#e0e7ff">
+            <div class="progress-bar score-bar rounded-pill"
+                 data-score="{{ results.confidence_score }}"
+                 style="background:linear-gradient(90deg,var(--brand-primary),#818cf8);width:0%"
+                 role="progressbar" aria-valuenow="{{ results.confidence_score }}"
+                 aria-valuemin="0" aria-valuemax="100"></div>
+          </div>
+        </div>
+
+        <!-- Eye contact animated bar -->
+        <div class="mb-4">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <span class="small fw-semibold"><i class="bi bi-eye-fill me-1" style="color:#7c3aed"></i>Eye Contact</span>
+            <span class="small fw-bold" style="color:#7c3aed">{{ results.eye_contact_score }}/100</span>
+          </div>
+          <div class="progress rounded-pill" style="height:14px;background:#ede9fe">
+            <div class="progress-bar score-bar rounded-pill"
+                 data-score="{{ results.eye_contact_score }}"
+                 style="background:linear-gradient(90deg,#7c3aed,#a78bfa);width:0%"
+                 role="progressbar" aria-valuenow="{{ results.eye_contact_score }}"
+                 aria-valuemin="0" aria-valuemax="100"></div>
+          </div>
+        </div>
+
+        <!-- Speech Rate visual indicator -->
+        <div class="mb-4">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <span class="small fw-semibold"><i class="bi bi-mic-fill me-1" style="color:#0891b2"></i>Speech Rate</span>
+            <span class="small fw-bold" style="color:#0891b2">{{ results.speech_rate }} wpm</span>
+          </div>
+          <div style="position:relative;height:14px;border-radius:99px;background:#e0f7ff;overflow:hidden">
+            <!-- Optimal zone highlight 120–160 out of 0–280 -->
+            <div style="position:absolute;left:{{ (120/280*100)|round(1) }}%;width:{{ ((160-120)/280*100)|round(1) }}%;height:100%;background:rgba(34,197,94,0.25);border-left:2px solid #22c55e;border-right:2px solid #22c55e"></div>
+            <!-- WPM marker -->
+            <div id="wpm-bar"
+                 style="position:absolute;left:0;top:0;height:100%;border-radius:99px;
+                        background:linear-gradient(90deg,#0891b2,#06b6d4);transition:width 1.2s cubic-bezier(.4,0,.2,1);width:0%"
+                 data-wpm="{{ results.speech_rate }}"></div>
+          </div>
+          <div class="d-flex justify-content-between mt-1" style="font-size:.7rem;color:#94a3b8">
+            <span>0</span>
+            <span class="text-success fw-semibold">120–160 wpm optimal</span>
+            <span>280</span>
+          </div>
+        </div>
+
+        <!-- Charts row: Emotion Distribution + Emotion Timeline -->
+        <div class="row g-3 mt-1">
+
+          <!-- Emotion Doughnut -->
+          {% if results.emotion_breakdown %}
+          <div class="col-md-5">
+            <p class="small fw-semibold text-muted text-center mb-2">Emotion Distribution</p>
+            <div style="max-width:240px;margin:0 auto">
+              <canvas id="emotionDonutChart" height="220"></canvas>
+            </div>
+          </div>
+          {% endif %}
+
+          <!-- Emotion Timeline -->
+          {% if results.emotion_timeline %}
+          <div class="{{ 'col-md-7' if results.emotion_breakdown else 'col-12' }}">
+            <p class="small fw-semibold text-muted text-center mb-2">Emotion Throughout Interview</p>
+            <canvas id="emotionTimelineChart" height="160"></canvas>
+          </div>
+          {% endif %}
+
+        </div><!-- /charts row -->
+      </div>
+    </div>
+
+    <!-- ── Emotion Breakdown ──────────────────────────────────────── -->
+    {% if results.emotion_breakdown %}
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+      <div class="card-header fw-bold bg-white border-0 pt-4 pb-0 fs-6">
+        <i class="bi bi-bar-chart-steps me-2 text-success"></i>Emotion Breakdown
+        <small class="text-muted fw-normal ms-2">({{ results.faces_detected }} face frames / {{ results.frames_analyzed }} total)</small>
+      </div>
+      <div class="card-body pt-3 pb-4">
+        {% set emotion_colors = {
+          'Enthusiastic': '#f59e0b',
+          'Calm':         '#7c3aed',
+          'Surprised':    '#0891b2',
+          'Nervous':      '#dc2626',
+          'Frustrated':   '#b91c1c',
+          'Disengaged':   '#6b7280',
+          'Displeased':   '#92400e'
+        } %}
+        {% for emo, pct in results.emotion_breakdown.items() | sort(attribute='1', reverse=True) %}
+        <div class="mb-2">
+          <div class="d-flex justify-content-between small mb-1">
+            <span class="fw-medium">{{ emo }}</span>
+            <span class="text-muted">{{ pct }}%</span>
+          </div>
+          <div class="progress" style="height:10px;border-radius:99px;background:#f1f5f9">
+            <div class="progress-bar"
+                 style="width:{{ pct }}%;background:{{ emotion_colors.get(emo, '#64748b') }};border-radius:99px"
+                 role="progressbar" aria-valuenow="{{ pct }}" aria-valuemin="0" aria-valuemax="100">
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- ── Transcript ─────────────────────────────────────────────── -->
+    {% if results.transcript %}
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+      <div class="card-header fw-bold bg-white border-0 pt-4 pb-0 fs-6 d-flex align-items-center justify-content-between">
+        <span><i class="bi bi-chat-quote-fill me-2 text-primary"></i>Speech Transcript</span>
+        <span class="badge bg-light text-dark border fw-normal">
+          {{ results.word_count }} words &nbsp;·&nbsp; {{ results.audio_duration }}s
+        </span>
+      </div>
+      <div class="card-body pt-3">
+        <blockquote class="blockquote mb-0">
+          <p class="small lh-lg text-secondary fst-italic" style="max-height:180px;overflow-y:auto;background:#f8fafc;border-left:4px solid var(--brand-primary);padding:.75rem 1rem;border-radius:0 .5rem .5rem 0">
+            {{ results.transcript }}
+          </p>
+        </blockquote>
+      </div>
+    </div>
+    {% elif results.audio_error %}
+    <div class="alert alert-warning rounded-4 d-flex align-items-center gap-2 mb-4" role="alert">
+      <i class="bi bi-exclamation-triangle-fill"></i>
+      <span><strong>Audio analysis unavailable:</strong> {{ results.audio_error }}</span>
+    </div>
+    {% endif %}
+
+    <!-- ── Recommendations ─────────────────────────────────────── -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+      <div class="card-header fw-bold bg-white border-0 pt-4 pb-0 fs-6">
+        <i class="bi bi-lightbulb-fill text-warning me-2"></i>Recommendations
+      </div>
+      <div class="card-body pt-3">
+        <ul class="list-group list-group-flush">
+          {% if results.confidence_score < 70 %}
+          <li class="list-group-item border-0 ps-0">
+            <i class="bi bi-arrow-right-circle-fill text-danger me-2"></i>
+            Practice speaking with more authority — record mock interviews and review your posture and head position.
+          </li>
+          {% endif %}
+          {% if results.speech_rate > 0 and results.speech_rate < 120 %}
+          <li class="list-group-item border-0 ps-0">
+            <i class="bi bi-arrow-right-circle-fill text-warning me-2"></i>
+            Try to increase your speaking pace — aim for 120–160 words per minute to sound more engaged.
+          </li>
+          {% elif results.speech_rate > 160 %}
+          <li class="list-group-item border-0 ps-0">
+            <i class="bi bi-arrow-right-circle-fill text-warning me-2"></i>
+            Slow down slightly — speaking too quickly can make you harder to understand.
+          </li>
+          {% endif %}
+          {% if results.eye_contact_score < 65 %}
+          <li class="list-group-item border-0 ps-0">
+            <i class="bi bi-arrow-right-circle-fill text-danger me-2"></i>
+            Work on maintaining eye contact with the camera to convey engagement and trustworthiness.
+          </li>
+          {% endif %}
+          {% if results.emotion_prediction in ['Nervous', 'Frustrated', 'Displeased'] %}
+          <li class="list-group-item border-0 ps-0">
+            <i class="bi bi-arrow-right-circle-fill text-primary me-2"></i>
+            Consider relaxation techniques before interviews — deep breathing can significantly reduce anxiety and stress signals.
+          </li>
+          {% endif %}
+          {% if results.emotion_prediction == 'Disengaged' %}
+          <li class="list-group-item border-0 ps-0">
+            <i class="bi bi-arrow-right-circle-fill text-info me-2"></i>
+            Try to show more enthusiasm and energy — interviewers respond well to genuine excitement about the role.
+          </li>
+          {% endif %}
+          {% if results.final_interview_score >= 80 %}
+          <li class="list-group-item border-0 ps-0">
+            <i class="bi bi-check-circle-fill text-success me-2"></i>
+            Great job overall! Keep refining your answers and you'll be well-prepared for real interviews.
+          </li>
+          {% endif %}
+          {% if results.confidence_score >= 70 and results.eye_contact_score >= 65 and results.final_interview_score < 80 %}
+          <li class="list-group-item border-0 ps-0">
+            <i class="bi bi-arrow-right-circle-fill text-info me-2"></i>
+            You have strong fundamentals — focus on content quality and structured storytelling (STAR method).
+          </li>
+          {% endif %}
+          {% if results.faces_detected == 0 %}
+          <li class="list-group-item border-0 ps-0">
+            <i class="bi bi-exclamation-circle-fill text-warning me-2"></i>
+            No face was detected in the video. Ensure you are clearly visible and well-lit throughout the recording.
+          </li>
+          {% endif %}
+        </ul>
+      </div>
+    </div>
+
+    <!-- ── Actions ─────────────────────────────────────────────── -->
+    <div class="d-flex flex-wrap gap-3 justify-content-center pt-2">
+      <a href="{{ url_for('index') }}" class="btn btn-analyze">
+        <i class="bi bi-arrow-repeat me-2"></i>Analyze Another Video
+      </a>
+      <button onclick="window.print()" class="btn btn-outline-secondary rounded-pill px-4">
+        <i class="bi bi-printer me-2"></i>Print Results
+      </button>
+    </div>
+
+  </main>
+
+  <footer>
+    <div class="container">
+      <p class="mb-0">AI Interview Analyzer &copy; {{ 2024 }} &mdash; Powered by Flask &amp; Machine Learning</p>
+    </div>
+  </footer>
+
+  <!-- Bootstrap JS -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-YvpcrYf0tY3lHB60NNkmXc4s9bIOgUxi8T/jzmCpqTKOB/a0i5g3BFHY+xG66wU"
+    crossorigin="anonymous"
+  ></script>
+  <!-- Custom JS -->
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+  <!-- ── Chart.js visualisations ──────────────────────────────────────── -->
+  <script>
+  (function () {
+    "use strict";
+
+    // ── Shared emotion meta-data ─────────────────────────────────────────
+    const EMOTION_DISPLAY_NAMES = ["Angry","Disgust","Fear","Happy","Neutral","Sad","Surprised"];
+    const EMOTION_FRIENDLY      = ["Frustrated","Displeased","Nervous","Enthusiastic","Calm","Disengaged","Surprised"];
+    const EMOTION_PALETTE = [
+      "#b91c1c","#92400e","#dc2626","#f59e0b","#7c3aed","#6b7280","#0891b2"
+    ];
+
+    // ── Animated score bars (confidence & eye contact) ───────────────────
+    document.querySelectorAll(".score-bar[data-score]").forEach(bar => {
+      const target = Math.min(parseFloat(bar.dataset.score) || 0, 100);
+      bar.style.width = "0%";
+      requestAnimationFrame(() => setTimeout(() => { bar.style.width = target + "%"; }, 120));
+    });
+
+    // ── Speech rate bar ──────────────────────────────────────────────────
+    const wpmBar = document.getElementById("wpm-bar");
+    if (wpmBar) {
+      const wpm    = parseFloat(wpmBar.dataset.wpm) || 0;
+      const pct    = Math.min(wpm / 280 * 100, 100);
+      requestAnimationFrame(() => setTimeout(() => { wpmBar.style.width = pct + "%"; }, 150));
+    }
+
+    // ── Emotion Doughnut Chart ───────────────────────────────────────────
+    const donutCtx = document.getElementById("emotionDonutChart");
+    if (donutCtx) {
+      const rawBreakdown = {{ results.emotion_breakdown | tojson }};
+      const donutLabels  = Object.keys(rawBreakdown);
+      const donutData    = Object.values(rawBreakdown);
+      const donutColors  = donutLabels.map(label => {
+        const map = {
+          "Enthusiastic":"#f59e0b","Calm":"#7c3aed","Surprised":"#0891b2",
+          "Nervous":"#dc2626","Frustrated":"#b91c1c","Disengaged":"#6b7280","Displeased":"#92400e"
+        };
+        return map[label] || "#94a3b8";
+      });
+
+      new Chart(donutCtx, {
+        type: "doughnut",
+        data: {
+          labels: donutLabels,
+          datasets: [{
+            data:            donutData,
+            backgroundColor: donutColors,
+            borderWidth:     2,
+            borderColor:     "#fff",
+            hoverOffset:     6,
+          }]
+        },
+        options: {
+          cutout: "65%",
+          plugins: {
+            legend: {
+              position: "bottom",
+              labels: { boxWidth: 10, font: { size: 11 }, padding: 8 }
+            },
+            tooltip: {
+              callbacks: {
+                label: ctx => ` ${ctx.label}: ${ctx.parsed}%`
+              }
+            }
+          },
+          animation: { animateRotate: true, duration: 900 }
+        }
+      });
+    }
+
+    // ── Emotion Timeline Chart ───────────────────────────────────────────
+    const timelineCtx = document.getElementById("emotionTimelineChart");
+    if (timelineCtx) {
+      const timeline = {{ results.emotion_timeline | tojson }};
+
+      // Build point colors based on emotion class
+      const ptColors = timeline.map(e => EMOTION_PALETTE[e] || "#94a3b8");
+
+      new Chart(timelineCtx, {
+        type: "line",
+        data: {
+          labels: timeline.map((_, i) => i + 1),
+          datasets: [{
+            label:           "Emotion",
+            data:            timeline,
+            stepped:         "before",
+            borderColor:     "rgba(79,70,229,0.6)",
+            borderWidth:     2,
+            pointBackgroundColor: ptColors,
+            pointRadius:     3,
+            pointHoverRadius: 5,
+            fill:            false,
+            tension:         0,
+          }]
+        },
+        options: {
+          animation: { duration: 800 },
+          scales: {
+            x: {
+              title: { display: true, text: "Frame", font: { size: 11 } },
+              ticks: { maxTicksLimit: 10, font: { size: 10 } },
+              grid:  { color: "rgba(0,0,0,0.04)" }
+            },
+            y: {
+              min: -0.5,
+              max: 6.5,
+              ticks: {
+                stepSize: 1,
+                font: { size: 10 },
+                callback: val => {
+                  const i = Math.round(val);
+                  return (i >= 0 && i <= 6) ? EMOTION_FRIENDLY[i] : "";
+                }
+              },
+              grid: { color: "rgba(0,0,0,0.05)" }
+            }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: ctx => ` ${EMOTION_FRIENDLY[ctx.parsed.y] || "Unknown"}`
+              }
+            }
+          }
+        }
+      });
+    }
+
+  })();
+  </script>
+</body>
+</html>

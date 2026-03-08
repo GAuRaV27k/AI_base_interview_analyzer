@@ -1,0 +1,259 @@
+/* =========================================================
+   AI Interview Analyzer – Custom Stylesheet
+   ========================================================= */
+
+:root {
+  --brand-primary: #4f46e5;
+  --brand-secondary: #7c3aed;
+  --brand-accent: #06b6d4;
+  --surface: #f8fafc;
+  --card-shadow: 0 4px 24px rgba(79, 70, 229, 0.10);
+  --card-shadow-hover: 0 8px 32px rgba(79, 70, 229, 0.20);
+}
+
+/* ── Global ─────────────────────────────────────────────── */
+body {
+  background-color: var(--surface);
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+}
+
+/* ── Hero / Header ──────────────────────────────────────── */
+.hero-header {
+  background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-secondary) 60%, var(--brand-accent) 100%);
+  color: #fff;
+  padding: 3.5rem 1rem 2.5rem;
+  text-align: center;
+  box-shadow: 0 4px 20px rgba(79, 70, 229, 0.3);
+}
+
+.hero-header h1 {
+  font-size: clamp(1.8rem, 5vw, 3rem);
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  margin-bottom: 0.5rem;
+}
+
+.hero-header p.lead {
+  opacity: 0.9;
+  font-size: 1.1rem;
+}
+
+/* ── Upload Card ────────────────────────────────────────── */
+.upload-card {
+  border: none;
+  border-radius: 1.25rem;
+  box-shadow: var(--card-shadow);
+  transition: box-shadow 0.3s ease;
+  background: #fff;
+}
+
+.upload-card:hover {
+  box-shadow: var(--card-shadow-hover);
+}
+
+/* Drag-and-drop file input zone */
+.upload-zone {
+  border: 2.5px dashed #c7d2fe;
+  border-radius: 0.875rem;
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.25s, background 0.25s;
+  background: #f5f3ff;
+}
+
+.upload-zone:hover,
+.upload-zone.dragover {
+  border-color: var(--brand-primary);
+  background: #ede9fe;
+}
+
+.upload-zone .upload-icon {
+  font-size: 3rem;
+  color: var(--brand-primary);
+  margin-bottom: 0.75rem;
+}
+
+.upload-zone input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}
+
+/* ── Buttons ────────────────────────────────────────────── */
+.btn-analyze {
+  background: linear-gradient(135deg, var(--brand-primary), var(--brand-secondary));
+  border: none;
+  color: #fff;
+  font-weight: 700;
+  font-size: 1.05rem;
+  padding: 0.7rem 2.5rem;
+  border-radius: 3rem;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+}
+
+.btn-analyze:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(79, 70, 229, 0.45);
+  color: #fff;
+}
+
+.btn-analyze:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* ── Loading Overlay ────────────────────────────────────── */
+#loading-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 15, 35, 0.65);
+  z-index: 9999;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  backdrop-filter: blur(4px);
+}
+
+#loading-overlay.active {
+  display: flex;
+}
+
+#loading-overlay .spinner-ring {
+  width: 64px;
+  height: 64px;
+  border: 6px solid rgba(255, 255, 255, 0.2);
+  border-top-color: var(--brand-accent);
+  border-radius: 50%;
+  animation: spin 0.85s linear infinite;
+}
+
+#loading-overlay p {
+  color: #fff;
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Result Cards ───────────────────────────────────────── */
+.metric-card {
+  border: none;
+  border-radius: 1rem;
+  box-shadow: var(--card-shadow);
+  transition: transform 0.25s, box-shadow 0.25s;
+  overflow: hidden;
+}
+
+.metric-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--card-shadow-hover);
+}
+
+.metric-card .card-header {
+  font-weight: 700;
+  font-size: 0.85rem;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 0.75rem 1.25rem;
+  border-bottom: none;
+}
+
+.metric-card .metric-value {
+  font-size: 2.4rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.metric-card .metric-label {
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin-top: 0.25rem;
+}
+
+/* Score progress bar */
+.score-bar-wrap {
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 0.85rem;
+}
+
+.score-bar {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+  background: linear-gradient(90deg, var(--brand-primary), var(--brand-accent));
+}
+
+/* Emotion badge */
+.emotion-badge {
+  display: inline-block;
+  padding: 0.45rem 1.1rem;
+  border-radius: 2rem;
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 0.3px;
+}
+
+/* Final score ring */
+.final-score-card {
+  background: linear-gradient(135deg, var(--brand-primary), var(--brand-secondary));
+  color: #fff;
+}
+
+.final-score-ring {
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+  border: 5px solid rgba(255,255,255,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 0.5rem;
+}
+
+.final-score-ring span {
+  font-size: 2rem;
+  font-weight: 900;
+}
+
+/* ── Flash alerts ───────────────────────────────────────── */
+.alert {
+  border-radius: 0.875rem;
+  border: none;
+}
+
+/* ── Footer ─────────────────────────────────────────────── */
+footer {
+  color: #9ca3af;
+  font-size: 0.85rem;
+  padding: 2rem 0;
+  text-align: center;
+}
+
+/* ── Video preview panel ─────────────────────────────────── */
+#video-preview-wrap video {
+  border: 2px solid #c7d2fe;
+}
+
+#video-preview-wrap .btn-outline-secondary {
+  font-size: 0.8rem;
+}
+
+/* ── WPM / speech-rate indicator ────────────────────────── */
+#wpm-bar {
+  pointer-events: none;
+}

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Interview Analyzer</title>
+
+  <!-- Bootstrap 5 -->
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+    integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+    crossorigin="anonymous"
+  />
+  <!-- Bootstrap Icons -->
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+  />
+  <!-- Custom styles -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+
+  <!-- ── Loading Overlay ─────────────────────────────────────────────── -->
+  <div id="loading-overlay" role="status" aria-live="polite">
+    <div class="spinner-ring"></div>
+    <p>Analyzing your interview video…<br>
+       <small style="opacity:.75;font-weight:400;">This may take a moment.</small>
+    </p>
+  </div>
+
+  <!-- ── Hero Header ─────────────────────────────────────────────────── -->
+  <header class="hero-header">
+    <div class="container">
+      <h1><i class="bi bi-camera-video-fill me-3"></i>AI Interview Analyzer</h1>
+      <p class="lead mb-0">Upload your interview recording and get instant AI-powered feedback.</p>
+    </div>
+  </header>
+
+  <!-- ── Main Content ─────────────────────────────────────────────────── -->
+  <main class="container py-5" style="max-width: 700px;">
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show d-flex align-items-center gap-2 mb-4" role="alert">
+            {% if category == 'danger' %}
+              <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+            {% elif category == 'warning' %}
+              <i class="bi bi-exclamation-circle-fill fs-5"></i>
+            {% else %}
+              <i class="bi bi-info-circle-fill fs-5"></i>
+            {% endif %}
+            <span>{{ message }}</span>
+            <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <!-- Upload Card -->
+    <div class="card upload-card p-4">
+      <div class="card-body p-2">
+        <h2 class="h5 fw-bold mb-1 text-indigo">
+          <i class="bi bi-upload me-2" style="color:var(--brand-primary)"></i>Upload Interview Video
+        </h2>
+        <p class="text-muted small mb-4">Supported formats: MP4, AVI, MOV, MKV, WEBM &mdash; up to 500 MB</p>
+
+        <form id="upload-form" method="POST" action="{{ url_for('analyze') }}" enctype="multipart/form-data" novalidate>
+
+          <!-- Drop Zone -->
+          <div class="upload-zone position-relative mb-3" id="upload-zone">
+            <div class="upload-icon" id="upload-icon"><i class="bi bi-cloud-arrow-up"></i></div>
+            <p class="mb-1 fw-semibold" id="upload-prompt">Drag &amp; drop your video here</p>
+            <p class="text-muted small mb-0" id="upload-sub">or click to browse files</p>
+            <input
+              type="file"
+              name="video"
+              id="video-input"
+              accept="video/mp4,video/avi,video/quicktime,video/x-matroska,video/webm"
+              required
+              aria-label="Upload interview video"
+            />
+          </div>
+
+          <!-- ── Video Preview ───────────────────────────────────── -->
+          <div id="video-preview-wrap" class="d-none mb-3">
+            <video id="video-preview"
+                   controls
+                   class="w-100 rounded-3 shadow-sm"
+                   style="max-height:280px;background:#000;object-fit:contain">
+              Your browser does not support the video element.
+            </video>
+            <div class="d-flex align-items-center justify-content-between mt-2 px-1">
+              <div>
+                <p id="preview-filename" class="mb-0 small fw-semibold text-success">
+                  <i class="bi bi-check-circle-fill me-1"></i>
+                </p>
+                <p id="preview-filesize" class="mb-0 small text-muted"></p>
+              </div>
+              <button type="button" id="change-file-btn"
+                      class="btn btn-sm btn-outline-secondary rounded-pill px-3">
+                <i class="bi bi-arrow-repeat me-1"></i>Change
+              </button>
+            </div>
+          </div>
+
+          <!-- What we analyze -->
+          <div class="row g-2 mb-4">
+            {% set metrics = [
+              ('bi-shield-check', 'Confidence Score'),
+              ('bi-mic-fill',     'Speech Rate'),
+              ('bi-eye-fill',     'Eye Contact'),
+              ('bi-emoji-smile',  'Emotion Detection'),
+              ('bi-star-fill',    'Final Score'),
+            ] %}
+            {% for icon, label in metrics %}
+            <div class="col-6 col-sm-4">
+              <div class="d-flex align-items-center gap-2 bg-light rounded-3 px-3 py-2">
+                <i class="bi {{ icon }}" style="color:var(--brand-primary)"></i>
+                <span class="small fw-medium">{{ label }}</span>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+
+          <div class="d-grid">
+            <button type="submit" id="submit-btn" class="btn btn-analyze btn-lg">
+              <i class="bi bi-play-circle-fill me-2"></i>Analyze Interview
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- How it works -->
+    <div class="mt-5">
+      <h3 class="h6 fw-bold text-muted text-uppercase letter-spacing mb-3">How It Works</h3>
+      <div class="row g-3">
+        {% for step, icon, desc in [
+          ('1', 'bi-upload',        'Upload your video recording'),
+          ('2', 'bi-cpu-fill',      'AI analyzes audio, video & behavior'),
+          ('3', 'bi-bar-chart-fill','Receive detailed performance insights'),
+        ] %}
+        <div class="col-md-4">
+          <div class="d-flex flex-column align-items-center text-center p-3 bg-white rounded-3 shadow-sm h-100">
+            <div class="rounded-circle d-flex align-items-center justify-content-center mb-2"
+                 style="width:44px;height:44px;background:var(--brand-primary);color:#fff;font-weight:800;font-size:1rem;">
+              {{ step }}
+            </div>
+            <i class="bi {{ icon }} fs-4 mb-1" style="color:var(--brand-primary)"></i>
+            <p class="small text-muted mb-0">{{ desc }}</p>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+  </main>
+
+  <footer>
+    <div class="container">
+      <p class="mb-0">AI Interview Analyzer &copy; {{ 2024 }} &mdash; Powered by Flask &amp; Machine Learning</p>
+    </div>
+  </footer>
+
+  <!-- Bootstrap JS -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-YvpcrYf0tY3lHB60NNkmXc4s9bIOgUxi8T/jzmCpqTKOB/a0i5g3BFHY+xG66wU"
+    crossorigin="anonymous"
+  ></script>
+  <!-- Custom JS -->
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

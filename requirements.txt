@@ -1,0 +1,32 @@
+# Core
+numpy
+pandas
+scikit-learn
+joblib
+
+# Video/Audio Processing
+opencv-python
+librosa
+moviepy
+imageio-ffmpeg
+
+# Speech Recognition
+openai-whisper
+
+# Face Landmark Detection
+mediapipe
+
+# Deep Learning
+torch
+torchvision
+torchaudio
+transformers
+
+# API
+flask
+flask-cors
+werkzeug
+
+# Utilities
+python-dotenv
+tqdm
