@@ -229,3 +229,30 @@ The server starts at **http://localhost:5000**.
 
 *Built with ❤️ using Flask, OpenCV, MediaPipe, Whisper, and Chart.js.*
 # GAuRaV27k-AI_base_interview_analyzer
+
+---
+
+## 💼 LinkedIn Project Description
+
+> *Copy the text below directly into the **Projects** section of your LinkedIn profile.*
+
+---
+
+**AI-Based Interview Analyzer** | Python · Flask · OpenCV · MediaPipe · Whisper · Scikit-learn · Chart.js
+
+Built an end-to-end AI-powered web application that evaluates mock interview recordings and delivers instant, data-driven feedback — helping candidates understand and improve their interview performance before the real thing.
+
+**What it does:**
+Upload an interview video (MP4/AVI/MOV/MKV/WEBM, up to 500 MB) and the system simultaneously analyses the visual and audio tracks using a multi-threaded pipeline, then renders a rich analytics dashboard in seconds.
+
+**Key technical highlights:**
+• **Computer Vision** — Extracts 468 facial landmarks per frame with MediaPipe Face Landmarker to compute Eye Aspect Ratio (EAR), gaze offset, smile ratio, and head-pose angles (yaw/pitch/roll).
+• **Emotion Recognition** — A tuned Random Forest classifier trained on the FER-7 dataset predicts the candidate's emotion (angry, disgust, fear, happy, neutral, sad, surprised) for every sampled frame.
+• **Speech Analysis** — OpenAI Whisper transcribes the audio and Librosa extracts acoustic features (MFCC, RMS energy, spectral centroid, tempo) to calculate speech rate and vocal energy.
+• **Confidence Scoring** — Fuses head-pose stability and vocal energy into a single 0–100 confidence index.
+• **Interactive Dashboard** — Bootstrap 5 frontend with Chart.js visualisations: emotion-distribution doughnut, per-frame emotion timeline, animated progress bars, and a speech-rate indicator with an optimal-zone highlight.
+• **Personalised Recommendations** — Context-aware coaching tips generated from each candidate's unique score profile.
+
+**Tech stack:** Python 3, Flask, OpenCV, MediaPipe, Scikit-learn, OpenAI Whisper, Librosa, MoviePy, PyTorch, Bootstrap 5, Chart.js, concurrent.futures
+
+This project demonstrates practical experience in computer vision, NLP, audio signal processing, machine learning model integration, REST API design, and full-stack web development.
