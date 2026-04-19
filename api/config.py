@@ -69,11 +69,15 @@ class AppConfig:
         self.RF_MODEL_PATH = Path(
             os.getenv("RF_MODEL_PATH", str(self.BASE_DIR / "models" / "tuned_randomforest_model.joblib"))
         )
+        self.RF_MODEL_URL = os.getenv("RF_MODEL_URL", "").strip()
         self.LANDMARKER_MODEL_PATH = Path(
             os.getenv("LANDMARKER_MODEL_PATH", str(self.BASE_DIR / "face_landmarker.task"))
         )
+        self.LANDMARKER_MODEL_URL = os.getenv("LANDMARKER_MODEL_URL", "").strip()
         self.WHISPER_MODEL = os.getenv("WHISPER_MODEL", "base")
         self.WHISPER_LANGUAGE = os.getenv("WHISPER_LANGUAGE", "en")
+        self.MODEL_PREFLIGHT_ON_STARTUP = _parse_bool(os.getenv("MODEL_PREFLIGHT_ON_STARTUP"), True)
+        self.MODEL_PREFLIGHT_STRICT = _parse_bool(os.getenv("MODEL_PREFLIGHT_STRICT"), False)
 
     def to_flask_config(self) -> dict:
         return {
@@ -86,11 +90,15 @@ class AppConfig:
             "ALLOWED_EXTENSIONS": self.ALLOWED_EXTENSIONS,
             "ALLOWED_MIME_TYPES": self.ALLOWED_MIME_TYPES,
             "RF_MODEL_PATH": str(self.RF_MODEL_PATH),
+            "RF_MODEL_URL": self.RF_MODEL_URL,
             "LANDMARKER_MODEL_PATH": str(self.LANDMARKER_MODEL_PATH),
+            "LANDMARKER_MODEL_URL": self.LANDMARKER_MODEL_URL,
             "AUDIO_TMP_ROOT": str(self.AUDIO_TMP_ROOT),
             "WHISPER_MODEL": self.WHISPER_MODEL,
             "WHISPER_LANGUAGE": self.WHISPER_LANGUAGE,
             "PIPELINE_MAX_WORKERS": self.PIPELINE_MAX_WORKERS,
+            "MODEL_PREFLIGHT_ON_STARTUP": self.MODEL_PREFLIGHT_ON_STARTUP,
+            "MODEL_PREFLIGHT_STRICT": self.MODEL_PREFLIGHT_STRICT,
             "JSON_SORT_KEYS": False,
         }
 

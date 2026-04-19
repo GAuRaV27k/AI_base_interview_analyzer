@@ -21,6 +21,14 @@ def healthcheck():
     return json_success({"status": "ok"})
 
 
+@web_bp.route("/readyz", methods=["GET"])
+def readiness():
+    preflight = current_app.extensions.get("model_preflight", {})
+    if not preflight.get("ok", False):
+        return json_error(preflight.get("message", "Model preflight failed."), status=503)
+    return json_success({"message": preflight.get("message", "Ready")})
+
+
 @web_bp.route("/analyze", methods=["POST"])
 def analyze():
     as_json = wants_json_response()

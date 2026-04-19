@@ -27,6 +27,7 @@ import shutil
 import tempfile
 import threading
 import concurrent.futures
+from urllib.request import urlopen
 from typing import TypedDict
 
 _PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -42,7 +43,41 @@ _MODEL_CACHE: dict[tuple[str, str], tuple[object, object]] = {}
 _MODEL_LOCK = threading.Lock()
 
 
-def _get_models(rf_model_path: str, landmarker_path: str):
+def _download_if_missing(
+    local_path: str,
+    remote_url: str | None,
+    label: str,
+    url_env_name: str,
+) -> None:
+    if os.path.isfile(local_path):
+        return
+
+    if not remote_url:
+        raise FileNotFoundError(
+            f"{label} not found: {local_path}. Set {url_env_name} to download it in production."
+        )
+
+    parent_dir = os.path.dirname(local_path)
+    if parent_dir:
+        os.makedirs(parent_dir, exist_ok=True)
+    log.info("%s missing, downloading from %s", label, remote_url)
+
+    try:
+        with urlopen(remote_url, timeout=600) as response, open(local_path, "wb") as target:
+            shutil.copyfileobj(response, target)
+    except Exception as exc:
+        raise RuntimeError(f"Failed to download {label} from {remote_url}: {exc}") from exc
+
+    if not os.path.isfile(local_path):
+        raise FileNotFoundError(f"{label} download finished but file is missing: {local_path}")
+
+
+def _get_models(
+    rf_model_path: str,
+    landmarker_path: str,
+    rf_model_url: str | None = None,
+    landmarker_url: str | None = None,
+):
     cache_key = (os.path.abspath(rf_model_path), os.path.abspath(landmarker_path))
     with _MODEL_LOCK:
         if cache_key in _MODEL_CACHE:
@@ -51,16 +86,32 @@ def _get_models(rf_model_path: str, landmarker_path: str):
         log.info("Loading ML models for the first time...")
         from src.feature_engineering.facial_features import load_landmarker, load_rf_model
 
-        if not os.path.isfile(cache_key[0]):
-            raise FileNotFoundError(f"RandomForest model not found: {cache_key[0]}")
-        if not os.path.isfile(cache_key[1]):
-            raise FileNotFoundError(f"MediaPipe face landmarker not found: {cache_key[1]}")
+        _download_if_missing(cache_key[0], rf_model_url, "RandomForest model", "RF_MODEL_URL")
+        _download_if_missing(cache_key[1], landmarker_url, "MediaPipe face landmarker", "LANDMARKER_MODEL_URL")
 
         rf_model = load_rf_model(cache_key[0])
         landmarker = load_landmarker(cache_key[1])
         _MODEL_CACHE[cache_key] = (rf_model, landmarker)
         log.info("Models loaded successfully (RF + MediaPipe)")
         return rf_model, landmarker
+
+
+def ensure_model_assets(
+    rf_model_path: str,
+    landmarker_path: str,
+    rf_model_url: str | None = None,
+    landmarker_url: str | None = None,
+) -> None:
+    """Ensure model files exist locally, downloading them if URLs are provided."""
+    rf_abs = os.path.abspath(rf_model_path)
+    landmarker_abs = os.path.abspath(landmarker_path)
+    _download_if_missing(rf_abs, rf_model_url, "RandomForest model", "RF_MODEL_URL")
+    _download_if_missing(
+        landmarker_abs,
+        landmarker_url,
+        "MediaPipe face landmarker",
+        "LANDMARKER_MODEL_URL",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -93,7 +144,9 @@ class AnalysisResult(TypedDict):
 def analyze_interview(
     video_path: str,
     rf_model_path: str | None = None,
+    rf_model_url: str | None = None,
     landmarker_path: str | None = None,
+    landmarker_url: str | None = None,
     audio_tmp_root: str | None = None,
     whisper_model: str = "base",
     whisper_language: str | None = "en",
@@ -131,6 +184,8 @@ def analyze_interview(
         rf_model, landmarker = _get_models(
             rf_model_path=rf_model_path,
             landmarker_path=landmarker_path,
+            rf_model_url=rf_model_url,
+            landmarker_url=landmarker_url,
         )
     except Exception as exc:
         log.error("Failed to load models: %s", exc)
