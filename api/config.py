@@ -49,6 +49,8 @@ class AppConfig:
         self.MAX_UPLOAD_MB = _parse_int(os.getenv("MAX_UPLOAD_MB"), 500)
         self.MAX_CONTENT_LENGTH = self.MAX_UPLOAD_MB * 1024 * 1024
         self.PIPELINE_MAX_WORKERS = _parse_int(os.getenv("PIPELINE_MAX_WORKERS"), 2)
+        self.FRAME_SKIP = _parse_int(os.getenv("FRAME_SKIP"), 5)
+        self.MAX_FRAMES = _parse_int(os.getenv("MAX_FRAMES"), 150)
 
         self.ALLOWED_EXTENSIONS = _parse_csv_set(
             os.getenv("ALLOWED_EXTENSIONS"),
@@ -78,6 +80,10 @@ class AppConfig:
         self.WHISPER_LANGUAGE = os.getenv("WHISPER_LANGUAGE", "en")
         self.MODEL_PREFLIGHT_ON_STARTUP = _parse_bool(os.getenv("MODEL_PREFLIGHT_ON_STARTUP"), True)
         self.MODEL_PREFLIGHT_STRICT = _parse_bool(os.getenv("MODEL_PREFLIGHT_STRICT"), False)
+        self.ANALYSIS_ASYNC_ENABLED = _parse_bool(os.getenv("ANALYSIS_ASYNC_ENABLED"), True)
+        self.ANALYSIS_QUEUE_WORKERS = _parse_int(os.getenv("ANALYSIS_QUEUE_WORKERS"), 2)
+        self.JOB_RESULT_TTL_MINUTES = _parse_int(os.getenv("JOB_RESULT_TTL_MINUTES"), 120)
+        self.DELETE_UPLOAD_AFTER_ANALYSIS = _parse_bool(os.getenv("DELETE_UPLOAD_AFTER_ANALYSIS"), False)
 
     def to_flask_config(self) -> dict:
         return {
@@ -97,8 +103,14 @@ class AppConfig:
             "WHISPER_MODEL": self.WHISPER_MODEL,
             "WHISPER_LANGUAGE": self.WHISPER_LANGUAGE,
             "PIPELINE_MAX_WORKERS": self.PIPELINE_MAX_WORKERS,
+            "FRAME_SKIP": self.FRAME_SKIP,
+            "MAX_FRAMES": self.MAX_FRAMES,
             "MODEL_PREFLIGHT_ON_STARTUP": self.MODEL_PREFLIGHT_ON_STARTUP,
             "MODEL_PREFLIGHT_STRICT": self.MODEL_PREFLIGHT_STRICT,
+            "ANALYSIS_ASYNC_ENABLED": self.ANALYSIS_ASYNC_ENABLED,
+            "ANALYSIS_QUEUE_WORKERS": self.ANALYSIS_QUEUE_WORKERS,
+            "JOB_RESULT_TTL_MINUTES": self.JOB_RESULT_TTL_MINUTES,
+            "DELETE_UPLOAD_AFTER_ANALYSIS": self.DELETE_UPLOAD_AFTER_ANALYSIS,
             "JSON_SORT_KEYS": False,
         }
 

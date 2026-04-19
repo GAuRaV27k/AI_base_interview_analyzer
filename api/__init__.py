@@ -50,6 +50,13 @@ def create_app(config_obj: AppConfig | None = None) -> Flask:
     log = get_logger(__name__)
     log.info("Application initialized")
     _run_model_preflight(app, log)
+    from api.services.job_service import initialize_job_queue
+
+    initialize_job_queue(
+        max_workers=app.config.get("ANALYSIS_QUEUE_WORKERS", 2),
+        result_ttl_minutes=app.config.get("JOB_RESULT_TTL_MINUTES", 120),
+        delete_upload_after_analysis=app.config.get("DELETE_UPLOAD_AFTER_ANALYSIS", False),
+    )
 
     from api.errors import register_error_handlers
     from api.routes.web import web_bp

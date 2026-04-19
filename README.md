@@ -195,6 +195,12 @@ copy .env.example .env
 
 Edit `.env` with your production-safe values (especially `SECRET_KEY` and file/model paths).
 
+If your deploy target does not include large model files, set `RF_MODEL_URL` and/or
+`LANDMARKER_MODEL_URL` so the app can download them on startup.  
+If the RF model is unavailable, analysis now falls back to neutral emotion scoring instead of failing.
+For faster processing in production, increase `FRAME_SKIP`, reduce `MAX_FRAMES`, and optionally use `WHISPER_MODEL=tiny`.
+The web upload flow now runs in background jobs (non-blocking): upload starts a job, UI polls status, and redirects to results on completion.
+
 ### 5. Run the server
 
 **Windows (recommended):**
@@ -220,6 +226,12 @@ The server starts at **http://localhost:5000**.
 ```bash
 gunicorn -w 2 -b 0.0.0.0:5000 api.app:app
 ```
+
+### 7. Async analysis endpoints
+
+- `POST /api/jobs/analyze` → submit upload and receive `job_id`
+- `GET /api/jobs/<job_id>` → get `queued | running | completed | failed`
+- `GET /jobs/<job_id>/result` → render result page for completed jobs
 
 ---
 

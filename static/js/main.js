@@ -6,6 +6,7 @@
 
   // ── Element refs ───────────────────────────────────────────────────────
   const overlay         = document.getElementById("loading-overlay");
+  const overlayText     = document.getElementById("loading-overlay-text");
   const form            = document.getElementById("upload-form");
   const submitBtn       = document.getElementById("submit-btn");
   const fileInput       = document.getElementById("video-input");
@@ -92,17 +93,40 @@
 
   // ── Show loading overlay on form submit ────────────────────────────────
   if (form) {
-    form.addEventListener("submit", function (e) {
+    form.addEventListener("submit", async function (e) {
+      e.preventDefault();
       if (!fileInput || !fileInput.files.length) {
-        e.preventDefault();
         alert("Please select a video file before submitting.");
         return;
       }
+
       if (overlay)   overlay.classList.add("active");
+      if (overlayText) overlayText.innerHTML = "Uploading video…<br><small style='opacity:.75;font-weight:400;'>Preparing analysis job.</small>";
       if (submitBtn) {
         submitBtn.disabled = true;
         submitBtn.innerHTML =
-          '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Analyzing…';
+          '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Submitting…';
+      }
+
+      const formData = new FormData(form);
+      try {
+        const submitResponse = await fetch("/api/jobs/analyze", {
+          method: "POST",
+          body: formData,
+          headers: { Accept: "application/json" },
+        });
+        const submitPayload = await submitResponse.json();
+        if (!submitResponse.ok || !submitPayload.job_id) {
+          throw new Error(submitPayload.message || "Failed to submit analysis job.");
+        }
+        await pollJobUntilDone(submitPayload.job_id);
+      } catch (err) {
+        if (overlay) overlay.classList.remove("active");
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = '<i class="bi bi-play-circle-fill me-2"></i>Analyze Interview';
+        }
+        alert(err.message || "Analysis could not be started.");
       }
     });
   }
@@ -124,5 +148,43 @@
     const sizes = ["B", "KB", "MB", "GB"];
     const i     = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+  }
+
+  async function pollJobUntilDone(jobId) {
+    const maxPollAttempts = 240; // ~20 minutes with 5s interval
+    for (let attempt = 0; attempt < maxPollAttempts; attempt++) {
+      if (overlayText) {
+        overlayText.innerHTML = "Analyzing your interview video…<br><small style='opacity:.75;font-weight:400;'>Job " + jobId.slice(0, 8) + " • " + (attempt + 1) + " checks</small>";
+      }
+
+      await sleep(5000);
+      const statusResponse = await fetch(`/api/jobs/${jobId}`, {
+        headers: { Accept: "application/json" },
+      });
+      const statusPayload = await statusResponse.json();
+
+      if (statusResponse.ok) {
+        const state = statusPayload.status;
+        if (state === "completed") {
+          window.location.href = `/jobs/${jobId}/result`;
+          return;
+        }
+        if (state === "failed") {
+          throw new Error(statusPayload.error || "Analysis failed.");
+        }
+        continue; // queued/running
+      }
+
+      const details = statusPayload.details || {};
+      if (details.status === "failed") {
+        throw new Error(details.error || statusPayload.message || "Analysis failed.");
+      }
+      throw new Error(statusPayload.message || "Failed to check analysis status.");
+    }
+    throw new Error("Analysis timed out. Please try again.");
+  }
+
+  function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 })();

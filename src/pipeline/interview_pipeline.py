@@ -39,7 +39,7 @@ log = get_logger(__name__)
 # ---------------------------------------------------------------------------
 # Module-level model cache (loaded once per process)
 # ---------------------------------------------------------------------------
-_MODEL_CACHE: dict[tuple[str, str], tuple[object, object]] = {}
+_MODEL_CACHE: dict[tuple[str, str], tuple[object | None, object | None]] = {}
 _MODEL_LOCK = threading.Lock()
 
 
@@ -72,6 +72,24 @@ def _download_if_missing(
         raise FileNotFoundError(f"{label} download finished but file is missing: {local_path}")
 
 
+def _maybe_prepare_asset(
+    local_path: str,
+    remote_url: str | None,
+    label: str,
+    url_env_name: str,
+) -> tuple[bool, str]:
+    abs_path = os.path.abspath(local_path)
+    if os.path.isfile(abs_path):
+        return True, ""
+    if remote_url:
+        try:
+            _download_if_missing(abs_path, remote_url, label, url_env_name)
+            return True, ""
+        except Exception as exc:
+            return False, f"{label} unavailable (download failed): {exc}"
+    return False, f"{label} unavailable: {abs_path}"
+
+
 def _get_models(
     rf_model_path: str,
     landmarker_path: str,
@@ -86,13 +104,31 @@ def _get_models(
         log.info("Loading ML models for the first time...")
         from src.feature_engineering.facial_features import load_landmarker, load_rf_model
 
-        _download_if_missing(cache_key[0], rf_model_url, "RandomForest model", "RF_MODEL_URL")
-        _download_if_missing(cache_key[1], landmarker_url, "MediaPipe face landmarker", "LANDMARKER_MODEL_URL")
+        rf_ok, rf_msg = _maybe_prepare_asset(
+            cache_key[0], rf_model_url, "RandomForest model", "RF_MODEL_URL"
+        )
+        landmarker_ok, landmarker_msg = _maybe_prepare_asset(
+            cache_key[1], landmarker_url, "MediaPipe face landmarker", "LANDMARKER_MODEL_URL"
+        )
 
-        rf_model = load_rf_model(cache_key[0])
-        landmarker = load_landmarker(cache_key[1])
+        rf_model = load_rf_model(cache_key[0]) if rf_ok else None
+        landmarker = load_landmarker(cache_key[1]) if landmarker_ok else None
+
+        if rf_msg:
+            log.warning("%s", rf_msg)
+        if landmarker_msg:
+            log.warning("%s", landmarker_msg)
+        if not rf_ok and not landmarker_ok:
+            log.warning(
+                "Both facial models are unavailable; continuing with audio-only fallback."
+            )
+
         _MODEL_CACHE[cache_key] = (rf_model, landmarker)
-        log.info("Models loaded successfully (RF + MediaPipe)")
+        log.info(
+            "Model load result: rf_model=%s, landmarker=%s",
+            "ready" if rf_model is not None else "missing",
+            "ready" if landmarker is not None else "missing",
+        )
         return rf_model, landmarker
 
 
@@ -151,6 +187,8 @@ def analyze_interview(
     whisper_model: str = "base",
     whisper_language: str | None = "en",
     max_workers: int = 2,
+    frame_skip: int = 5,
+    max_frames: int = 150,
 ) -> AnalysisResult:
     """Run the full interview analysis pipeline on *video_path*.
 
@@ -180,16 +218,12 @@ def analyze_interview(
     landmarker_path = landmarker_path or os.path.join(_PROJECT_ROOT, "face_landmarker.task")
     audio_tmp_root = audio_tmp_root or os.path.join(_PROJECT_ROOT, "data", "processed", "audio_tmp")
 
-    try:
-        rf_model, landmarker = _get_models(
-            rf_model_path=rf_model_path,
-            landmarker_path=landmarker_path,
-            rf_model_url=rf_model_url,
-            landmarker_url=landmarker_url,
-        )
-    except Exception as exc:
-        log.error("Failed to load models: %s", exc)
-        raise RuntimeError(f"Model loading failed: {exc}") from exc
+    rf_model, landmarker = _get_models(
+        rf_model_path=rf_model_path,
+        landmarker_path=landmarker_path,
+        rf_model_url=rf_model_url,
+        landmarker_url=landmarker_url,
+    )
 
     os.makedirs(audio_tmp_root, exist_ok=True)
     audio_tmp = tempfile.mkdtemp(
@@ -203,7 +237,14 @@ def analyze_interview(
     log.info("Launching parallel video + audio pipelines")
     try:
         with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, int(max_workers))) as pool:
-            video_future = pool.submit(_run_video_pipeline, video_path, rf_model, landmarker)
+            video_future = pool.submit(
+                _run_video_pipeline,
+                video_path,
+                rf_model,
+                landmarker,
+                frame_skip,
+                max_frames,
+            )
             audio_future = pool.submit(
                 _run_audio_pipeline_safe,
                 video_path,
@@ -282,7 +323,13 @@ def analyze_interview(
 # Private pipeline stages
 # ---------------------------------------------------------------------------
 
-def _run_video_pipeline(video_path: str, rf_model, landmarker) -> dict:
+def _run_video_pipeline(
+    video_path: str,
+    rf_model,
+    landmarker,
+    frame_skip: int,
+    max_frames: int,
+) -> dict:
     """Extract frames → MediaPipe features → RF emotion predictions."""
     log.info("Frame extraction started")
     try:
@@ -291,8 +338,8 @@ def _run_video_pipeline(video_path: str, rf_model, landmarker) -> dict:
             video_path = video_path,
             rf_model   = rf_model,
             landmarker = landmarker,
-            frame_skip = 5,
-            max_frames = 150,
+            frame_skip = frame_skip,
+            max_frames = max_frames,
         )
         log.info("Emotion prediction complete — dominant=%s  faces=%d/%d",
                  result.get("emotion_prediction"), result.get("faces_detected"),

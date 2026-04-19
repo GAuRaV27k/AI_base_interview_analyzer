@@ -272,6 +272,20 @@ def run_video_analysis(
     """
     from src.video_processing.video_processor import iter_frames
 
+    if landmarker is None:
+        # Fallback mode when facial models are not available in deployment.
+        return {
+            "emotion_prediction": "Calm",
+            "emotion_breakdown": {"Calm": 100.0},
+            "emotion_timeline": [],
+            "eye_contact_score": 50.0,
+            "confidence_score": 50.0,
+            "head_pitches": [],
+            "head_yaws": [],
+            "frames_analyzed": 0,
+            "faces_detected": 0,
+        }
+
     all_features: list[dict] = []
     gazes:  list[int]   = []
     pitches: list[float] = []
@@ -307,24 +321,29 @@ def run_video_analysis(
 
     # -- Build feature matrix and run RF model ----------------------------
     X = np.array([[f[c] for c in FEATURE_COLS] for f in all_features], dtype=np.float64)
-    preds = rf_model.predict(X)           # array of int labels [0-6]
-    emotion_timeline = [int(p) for p in preds]  # per-frame predictions for charts
+    emotion_timeline: list[int] = []
+    emotion_breakdown: dict[str, float] = {"Calm": 100.0}
+    dominant = "Calm"
+    if rf_model is not None:
+        preds = rf_model.predict(X)           # array of int labels [0-6]
+        emotion_timeline = [int(p) for p in preds]  # per-frame predictions for charts
 
-    # -- Emotion aggregation ----------------------------------------------
-    from collections import Counter
-    counts   = Counter(int(p) for p in preds)
-    total    = len(preds)
-    raw_mode = counts.most_common(1)[0][0]
-    raw_name = EMOTION_LABELS.get(raw_mode, "Neutral")
-    dominant = EMOTION_DISPLAY.get(raw_name, raw_name)
+        # -- Emotion aggregation ------------------------------------------
+        from collections import Counter
 
-    emotion_breakdown: dict[str, float] = {}
-    for label_id, raw_name in EMOTION_LABELS.items():
-        display = EMOTION_DISPLAY.get(raw_name, raw_name)
-        count = counts.get(label_id, 0)
-        pct = round(count / total * 100, 1)
-        if pct > 0:
-            emotion_breakdown[display] = pct
+        counts   = Counter(int(p) for p in preds)
+        total    = len(preds)
+        raw_mode = counts.most_common(1)[0][0]
+        raw_name = EMOTION_LABELS.get(raw_mode, "Neutral")
+        dominant = EMOTION_DISPLAY.get(raw_name, raw_name)
+
+        emotion_breakdown = {}
+        for label_id, raw_name in EMOTION_LABELS.items():
+            display = EMOTION_DISPLAY.get(raw_name, raw_name)
+            count = counts.get(label_id, 0)
+            pct = round(count / total * 100, 1)
+            if pct > 0:
+                emotion_breakdown[display] = pct
 
     # -- Eye contact score ------------------------------------------------
     center_frames    = sum(1 for g in gazes if g == 0)
