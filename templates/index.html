@@ -68,7 +68,7 @@
         </h2>
         <p class="text-muted small mb-4">Supported formats: MP4, AVI, MOV, MKV, WEBM &mdash; up to 500 MB</p>
 
-        <form id="upload-form" method="POST" action="{{ url_for('analyze') }}" enctype="multipart/form-data" novalidate>
+        <form id="upload-form" method="POST" action="{{ url_for('web.analyze') }}" enctype="multipart/form-data" novalidate>
 
           <!-- Drop Zone -->
           <div class="upload-zone position-relative mb-3" id="upload-zone">

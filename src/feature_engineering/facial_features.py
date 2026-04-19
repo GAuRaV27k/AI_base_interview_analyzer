@@ -23,8 +23,6 @@ run_video_analysis(video_path, rf_model, landmarker, ...) -> dict
 
 from __future__ import annotations
 
-import math
-import os
 from typing import Optional
 
 import cv2 as cv
@@ -272,17 +270,17 @@ def run_video_analysis(
         frames_analyzed     – int
         faces_detected      – int
     """
-    # -- import here to avoid top-level circular / heavy imports -----------
-    import cv2 as cv  # noqa: F401 (already imported at top)
     from src.video_processing.video_processor import iter_frames
 
     all_features: list[dict] = []
     gazes:  list[int]   = []
     pitches: list[float] = []
     yaws:    list[float] = []
+    frames_analyzed = 0
 
     for _idx, frame in iter_frames(video_path, frame_skip=frame_skip,
                                    max_frames=max_frames, resize=(640, 480)):
+        frames_analyzed += 1
         feats = extract_features_from_frame(frame, landmarker)
         if feats is None:
             continue
@@ -291,7 +289,6 @@ def run_video_analysis(
         pitches.append(feats["head_pitch"])
         yaws.append(feats["head_yaw"])
 
-    frames_analyzed = _idx + 1 if '_idx' in dir() else 0  # total frames iterated
     faces_detected  = len(all_features)
 
     if faces_detected == 0:
@@ -322,11 +319,9 @@ def run_video_analysis(
     dominant = EMOTION_DISPLAY.get(raw_name, raw_name)
 
     emotion_breakdown: dict[str, float] = {}
-    for label_id, display in EMOTION_DISPLAY.items():
-        raw_key = {v: k for k, v in EMOTION_DISPLAY.items()}.get(display, display)
-        count = counts.get(
-            next((k for k, v in EMOTION_LABELS.items() if v == raw_key), -1), 0
-        )
+    for label_id, raw_name in EMOTION_LABELS.items():
+        display = EMOTION_DISPLAY.get(raw_name, raw_name)
+        count = counts.get(label_id, 0)
         pct = round(count / total * 100, 1)
         if pct > 0:
             emotion_breakdown[display] = pct

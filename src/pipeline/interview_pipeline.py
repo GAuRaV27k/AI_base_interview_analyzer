@@ -23,51 +23,44 @@ Results are merged and returned as AnalysisResult to the Flask API.
 from __future__ import annotations
 
 import os
-import sys
+import shutil
+import tempfile
+import threading
 import concurrent.futures
 from typing import TypedDict
 
-# Allow imports from the project root when running from api/
 _PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-if _PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, _PROJECT_ROOT)
 
 from src.utils.logger import get_logger
 
 log = get_logger(__name__)
 
 # ---------------------------------------------------------------------------
-# Paths to model assets (resolved relative to project root)
-# ---------------------------------------------------------------------------
-_LANDMARKER_PATH = os.path.join(_PROJECT_ROOT, "face_landmarker.task")
-_RF_MODEL_PATH   = os.path.join(_PROJECT_ROOT, "models",
-                                "tuned_randomforest_model.joblib")
-
-# ---------------------------------------------------------------------------
 # Module-level model cache (loaded once per process)
 # ---------------------------------------------------------------------------
-_landmarker = None
-_rf_model   = None
+_MODEL_CACHE: dict[tuple[str, str], tuple[object, object]] = {}
+_MODEL_LOCK = threading.Lock()
 
 
-def _get_models():
-    """Lazy-load and cache both models (thread-safe at import time)."""
-    global _landmarker, _rf_model
+def _get_models(rf_model_path: str, landmarker_path: str):
+    cache_key = (os.path.abspath(rf_model_path), os.path.abspath(landmarker_path))
+    with _MODEL_LOCK:
+        if cache_key in _MODEL_CACHE:
+            return _MODEL_CACHE[cache_key]
 
-    if _rf_model is None:
-        log.info("Loading ML models for the first time…")
+        log.info("Loading ML models for the first time...")
         from src.feature_engineering.facial_features import load_landmarker, load_rf_model
 
-        if not os.path.isfile(_RF_MODEL_PATH):
-            raise FileNotFoundError(f"RandomForest model not found: {_RF_MODEL_PATH}")
-        if not os.path.isfile(_LANDMARKER_PATH):
-            raise FileNotFoundError(f"MediaPipe face landmarker not found: {_LANDMARKER_PATH}")
+        if not os.path.isfile(cache_key[0]):
+            raise FileNotFoundError(f"RandomForest model not found: {cache_key[0]}")
+        if not os.path.isfile(cache_key[1]):
+            raise FileNotFoundError(f"MediaPipe face landmarker not found: {cache_key[1]}")
 
-        _rf_model   = load_rf_model(_RF_MODEL_PATH)
-        _landmarker = load_landmarker(_LANDMARKER_PATH)
+        rf_model = load_rf_model(cache_key[0])
+        landmarker = load_landmarker(cache_key[1])
+        _MODEL_CACHE[cache_key] = (rf_model, landmarker)
         log.info("Models loaded successfully (RF + MediaPipe)")
-
-    return _rf_model, _landmarker
+        return rf_model, landmarker
 
 
 # ---------------------------------------------------------------------------
@@ -97,7 +90,15 @@ class AnalysisResult(TypedDict):
 # Public entry point
 # ---------------------------------------------------------------------------
 
-def analyze_interview(video_path: str) -> AnalysisResult:
+def analyze_interview(
+    video_path: str,
+    rf_model_path: str | None = None,
+    landmarker_path: str | None = None,
+    audio_tmp_root: str | None = None,
+    whisper_model: str = "base",
+    whisper_language: str | None = "en",
+    max_workers: int = 2,
+) -> AnalysisResult:
     """Run the full interview analysis pipeline on *video_path*.
 
     Parameters
@@ -122,16 +123,23 @@ def analyze_interview(video_path: str) -> AnalysisResult:
     if not os.path.exists(video_path):
         raise FileNotFoundError(f"Video not found: {video_path}")
 
+    rf_model_path = rf_model_path or os.path.join(_PROJECT_ROOT, "models", "tuned_randomforest_model.joblib")
+    landmarker_path = landmarker_path or os.path.join(_PROJECT_ROOT, "face_landmarker.task")
+    audio_tmp_root = audio_tmp_root or os.path.join(_PROJECT_ROOT, "data", "processed", "audio_tmp")
+
     try:
-        rf_model, landmarker = _get_models()
+        rf_model, landmarker = _get_models(
+            rf_model_path=rf_model_path,
+            landmarker_path=landmarker_path,
+        )
     except Exception as exc:
         log.error("Failed to load models: %s", exc)
         raise RuntimeError(f"Model loading failed: {exc}") from exc
 
-    # Create a per-upload directory for audio intermediates
-    audio_tmp = os.path.join(
-        _PROJECT_ROOT, "data", "processed", "audio_tmp",
-        os.path.splitext(os.path.basename(video_path))[0],
+    os.makedirs(audio_tmp_root, exist_ok=True)
+    audio_tmp = tempfile.mkdtemp(
+        prefix=f"{os.path.splitext(os.path.basename(video_path))[0]}_",
+        dir=audio_tmp_root,
     )
 
     # -----------------------------------------------------------------------
@@ -139,15 +147,23 @@ def analyze_interview(video_path: str) -> AnalysisResult:
     # -----------------------------------------------------------------------
     log.info("Launching parallel video + audio pipelines")
     try:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, int(max_workers))) as pool:
             video_future = pool.submit(_run_video_pipeline, video_path, rf_model, landmarker)
-            audio_future = pool.submit(_run_audio_pipeline_safe, video_path, audio_tmp)
+            audio_future = pool.submit(
+                _run_audio_pipeline_safe,
+                video_path,
+                audio_tmp,
+                whisper_model,
+                whisper_language,
+            )
 
             video_result = video_future.result()
             audio_result = audio_future.result()
     except Exception as exc:
         log.error("Video pipeline failed: %s", exc, exc_info=True)
         raise RuntimeError(f"Video analysis failed: {exc}") from exc
+    finally:
+        shutil.rmtree(audio_tmp, ignore_errors=True)
 
     # -----------------------------------------------------------------------
     # Merge & compute final score
@@ -232,7 +248,12 @@ def _run_video_pipeline(video_path: str, rf_model, landmarker) -> dict:
         raise RuntimeError(f"Video feature extraction failed: {exc}") from exc
 
 
-def _run_audio_pipeline_safe(video_path: str, output_dir: str) -> dict:
+def _run_audio_pipeline_safe(
+    video_path: str,
+    output_dir: str,
+    whisper_model: str,
+    whisper_language: str | None,
+) -> dict:
     """Run the audio pipeline, capturing errors gracefully.
 
     Always returns a dict with the expected keys; populates ``'error'`` on
@@ -249,10 +270,10 @@ def _run_audio_pipeline_safe(video_path: str, output_dir: str) -> dict:
     try:
         from src.audio_processing.audio_pipeline import run_audio_pipeline
         result = run_audio_pipeline(
-            video_path    = video_path,
-            output_dir    = output_dir,
-            whisper_model = "base",
-            language      = "en",
+            video_path=video_path,
+            output_dir=output_dir,
+            whisper_model=whisper_model,
+            language=whisper_language,
         )
         result["error"] = ""
         log.info("Audio extraction complete — duration=%.1fs",

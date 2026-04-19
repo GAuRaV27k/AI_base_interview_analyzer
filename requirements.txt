@@ -1,32 +1,25 @@
-# Core
-numpy
-pandas
-scikit-learn
-joblib
+# Web/API
+Flask>=3.0,<4.0
+gunicorn>=23.0,<24.0
+python-dotenv>=1.0,<2.0
 
-# Video/Audio Processing
-opencv-python
-librosa
-moviepy
-imageio-ffmpeg
+# ML/Data
+numpy>=1.26
+pandas>=2.0
+scikit-learn>=1.4
+joblib>=1.3
+torch>=2.2
+torchvision>=0.17
+torchaudio>=2.2
+transformers>=4.40
 
-# Speech Recognition
-openai-whisper
-
-# Face Landmark Detection
-mediapipe
-
-# Deep Learning
-torch
-torchvision
-torchaudio
-transformers
-
-# API
-flask
-flask-cors
-werkzeug
+# Media processing
+opencv-python>=4.9
+mediapipe>=0.10
+librosa>=0.10
+moviepy>=1.0
+imageio-ffmpeg>=0.5
+openai-whisper>=20231117
 
 # Utilities
-python-dotenv
-tqdm
+tqdm>=4.66

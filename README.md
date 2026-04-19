@@ -105,7 +105,18 @@ Upload Video (POST /analyze)
 ai-interview-analyzer/
 │
 ├── api/
-│   └── app.py                        # Flask routes, validation, error handlers
+│   ├── __init__.py                   # Flask app factory
+│   ├── app.py                        # Gunicorn/dev entrypoint (`app = create_app()`)
+│   ├── config.py                     # Environment-driven settings
+│   ├── errors.py                     # Centralized error handlers
+│   ├── routes/
+│   │   └── web.py                    # Web + API endpoints
+│   ├── services/
+│   │   ├── upload_service.py         # Upload validation + safe storage
+│   │   └── interview_service.py      # Pipeline orchestration glue
+│   └── utils/
+│       ├── logging.py                # Rotating logging setup
+│       └── responses.py              # JSON response helpers
 │
 ├── src/
 │   ├── pipeline/
@@ -135,6 +146,7 @@ ai-interview-analyzer/
 ├── notebooks/                        # Jupyter notebooks (training & EDA)
 ├── logs/                             # Auto-created — app.log (rotating)
 ├── uploads/                          # Uploaded video files
+├── .env.example                      # Production-friendly config template
 ├── face_landmarker.task              # MediaPipe model asset (3.6 MB)
 ├── requirements.txt
 └── run.bat                           # One-click launcher (Windows)
@@ -173,9 +185,17 @@ Ensure the following files exist in the project root:
 | File | Size | Description |
 |---|---|---|
 | `face_landmarker.task` | ~3.6 MB | MediaPipe Face Landmarker model |
-| `src/feature_engineering/tuned_randomforest_model.joblib` | ~757 MB | Trained emotion classifier |
+| `models/tuned_randomforest_model.joblib` | ~757 MB | Trained emotion classifier |
 
-### 4. Run the server
+### 4. Configure environment variables
+
+```bash
+copy .env.example .env
+```
+
+Edit `.env` with your production-safe values (especially `SECRET_KEY` and file/model paths).
+
+### 5. Run the server
 
 **Windows (recommended):**
 
@@ -190,10 +210,16 @@ run.bat
 conda activate deep_learning
 # Suppress TensorFlow noise from MediaPipe
 set TF_ENABLE_ONEDNN_OPTS=0
-python api/app.py
+python -m api.app
 ```
 
 The server starts at **http://localhost:5000**.
+
+### 6. Gunicorn deployment (Linux/macOS/container)
+
+```bash
+gunicorn -w 2 -b 0.0.0.0:5000 api.app:app
+```
 
 ---
 

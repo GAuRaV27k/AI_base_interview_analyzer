@@ -29,4 +29,4 @@ echo  Starting server at http://localhost:5000
 echo  Press Ctrl+C to stop.
 echo.
 
-"%CONDA_PYTHON%" api\app.py
+"%CONDA_PYTHON%" -m api.app
