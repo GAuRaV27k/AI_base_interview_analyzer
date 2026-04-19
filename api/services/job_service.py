@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -81,29 +82,54 @@ def get_analysis_job(job_id: str) -> dict[str, Any] | None:
 
 
 def _run_job(job_id: str) -> None:
+    job = None
     with _lock:
         job = _jobs.get(job_id)
         if job is None:
+            log.error("Job not found: %s", job_id)
             return
         job.status = "running"
         job.updated_at = datetime.now(timezone.utc)
 
     try:
+        log.info("Starting analysis for job %s: %s", job_id, job.video_path)
+        log.info("Video path exists: %s", os.path.isfile(job.video_path))
+        
         result = analyze_uploaded_video(job.video_path, job.config)
+        
+        # Ensure result is JSON-serializable before storing
+        from api.utils.responses import _convert_to_serializable
+        result = _convert_to_serializable(result)
+        
         with _lock:
             job.status = "completed"
             job.result = result
             job.updated_at = datetime.now(timezone.utc)
-    except Exception as exc:
-        log.error("Analysis job failed (%s): %s", job_id, exc, exc_info=True)
+        log.info("Analysis completed successfully for job %s", job_id)
+    except FileNotFoundError as exc:
+        log.error("Video file not found for job %s: %s", job_id, job.video_path, exc_info=True)
         with _lock:
             job.status = "failed"
-            job.error = str(exc)
+            job.error = f"Video file not found: {job.video_path}"
+            job.updated_at = datetime.now(timezone.utc)
+    except MemoryError as exc:
+        log.error("Out of memory during analysis for job %s: %s", job_id, exc, exc_info=True)
+        with _lock:
+            job.status = "failed"
+            job.error = "Out of memory - video file may be too large. Try a shorter video."
+            job.updated_at = datetime.now(timezone.utc)
+    except Exception as exc:
+        error_msg = str(exc)
+        log.error("Analysis job failed (%s): %s", job_id, error_msg, exc_info=True)
+        with _lock:
+            job.status = "failed"
+            job.error = error_msg
             job.updated_at = datetime.now(timezone.utc)
     finally:
-        if _delete_upload_after_analysis:
+        if job and _delete_upload_after_analysis:
             try:
                 Path(job.video_path).unlink(missing_ok=True)
+                log.info("Deleted upload file for job %s", job_id)
             except Exception as exc:
                 log.warning("Failed to remove upload file '%s': %s", job.video_path, exc)
 

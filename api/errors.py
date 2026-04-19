@@ -47,3 +47,11 @@ def register_error_handlers(app: Flask) -> None:
         flash("An internal error occurred. Please try again.", "danger")
         return redirect(url_for("web.index"))
 
+    @app.errorhandler(Exception)
+    def handle_unexpected_error(error):
+        log.error("Unexpected error: %s", error, exc_info=True)
+        if wants_json_response():
+            return json_error(f"Server error: {str(error)}", status=500)
+        flash("An unexpected error occurred. Please try again.", "danger")
+        return redirect(url_for("web.index")), 500
+

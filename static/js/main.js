@@ -115,6 +115,13 @@
           body: formData,
           headers: { Accept: "application/json" },
         });
+        
+        // Check if response is valid JSON
+        const contentType = submitResponse.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          throw new Error("Server returned invalid response. Check server logs.");
+        }
+        
         const submitPayload = await submitResponse.json();
         if (!submitResponse.ok || !submitPayload.job_id) {
           throw new Error(submitPayload.message || "Failed to submit analysis job.");
@@ -158,28 +165,55 @@
       }
 
       await sleep(5000);
-      const statusResponse = await fetch(`/api/jobs/${jobId}`, {
-        headers: { Accept: "application/json" },
-      });
-      const statusPayload = await statusResponse.json();
-
-      if (statusResponse.ok) {
-        const state = statusPayload.status;
-        if (state === "completed") {
-          window.location.href = `/jobs/${jobId}/result`;
-          return;
+      try {
+        const statusResponse = await fetch(`/api/jobs/${jobId}`, {
+          headers: { Accept: "application/json" },
+        });
+        
+        // Handle 502/503 or other server errors
+        if (statusResponse.status === 502 || statusResponse.status === 503 || statusResponse.status === 504) {
+          throw new Error(`Server error (${statusResponse.status}). Retrying...`);
         }
-        if (state === "failed") {
-          throw new Error(statusPayload.error || "Analysis failed.");
+        
+        // Validate content type before parsing
+        const contentType = statusResponse.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          // If no content-type or not JSON, try to get text for debugging
+          const bodyText = await statusResponse.text();
+          if (!bodyText) {
+            throw new Error(`Server error: empty response (status ${statusResponse.status})`);
+          }
+          throw new Error("Server returned invalid response format. Check server logs.");
         }
-        continue; // queued/running
-      }
+        
+        const statusPayload = await statusResponse.json();
 
-      const details = statusPayload.details || {};
-      if (details.status === "failed") {
-        throw new Error(details.error || statusPayload.message || "Analysis failed.");
+        if (statusResponse.ok) {
+          const state = statusPayload.status;
+          if (state === "completed") {
+            window.location.href = `/jobs/${jobId}/result`;
+            return;
+          }
+          if (state === "failed") {
+            throw new Error(statusPayload.error || "Analysis failed.");
+          }
+          continue; // queued/running
+        }
+
+        const details = statusPayload.details || {};
+        if (details.status === "failed") {
+          throw new Error(details.error || statusPayload.message || "Analysis failed.");
+        }
+        throw new Error(statusPayload.message || "Failed to check analysis status.");
+      } catch (err) {
+        // If it's a server error, retry; otherwise throw
+        if (err.message && err.message.includes("Server error")) {
+          if (attempt < maxPollAttempts - 1) {
+            continue; // Retry on next iteration
+          }
+        }
+        throw err;
       }
-      throw new Error(statusPayload.message || "Failed to check analysis status.");
     }
     throw new Error("Analysis timed out. Please try again.");
   }
